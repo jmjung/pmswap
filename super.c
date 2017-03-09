@@ -33,6 +33,8 @@
 #include <linux/backing-dev.h>
 #include <linux/list.h>
 #include "pmfs.h"
+// jmjung update 
+#include <linux/pfn_t.h>
 
 int measure_timing = 0;
 int support_clwb = 0;
@@ -101,7 +103,9 @@ static int pmfs_get_block_info(struct super_block *sb,
 	struct pmfs_sb_info *sbi)
 {
 	void *virt_addr = NULL;
-	unsigned long pfn;
+	//unsigned long pfn;
+	/* jmjung update */
+	pfn_t pfn;
 	long size;
 
 	if (!sb->s_bdev->bd_disk->fops->direct_access) {
@@ -111,11 +115,16 @@ static int pmfs_get_block_info(struct super_block *sb,
 
 	sbi->s_bdev = sb->s_bdev;
 
+	/* jmjung update */
+	//size = sb->s_bdev->bd_disk->fops->direct_access(sb->s_bdev,
+	//			0, &virt_addr, &pfn);
 	size = sb->s_bdev->bd_disk->fops->direct_access(sb->s_bdev,
-				0, &virt_addr, &pfn);
+				0, &virt_addr, &pfn, PAGE_SIZE);
 
 	sbi->virt_addr = virt_addr;
-	sbi->phys_addr = pfn << PAGE_SHIFT;
+	/* jmjung update */
+	//sbi->phys_addr = pfn << PAGE_SHIFT;
+	sbi->phys_addr = pfn_t_to_pfn(pfn) << PAGE_SHIFT;
 	sbi->initsize = size;
 
 	return 0;

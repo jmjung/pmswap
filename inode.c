@@ -1500,7 +1500,9 @@ int pmfs_notify_change(struct dentry *dentry, struct iattr *attr)
 	if (!pi)
 		return -EACCES;
 
-	ret = inode_change_ok(inode, attr);
+	/* jmjung: update */
+	//ret = inode_change_ok(inode, attr);
+	ret = setattr_prepare(dentry, attr);
 	if (ret)
 		return ret;
 
@@ -1625,10 +1627,12 @@ static ssize_t pmfs_direct_IO(int rw, struct kiocb *iocb,
 			ret = pmfs_xip_file_read(filp, iv->iov_base,
 					iv->iov_len, &offset);
 		} else if (rw == WRITE) {
-			mutex_unlock(&inode->i_mutex);
+			//mutex_unlock(&inode->i_mutex);
+			inode_unlock(inode);
 			ret = pmfs_xip_file_write(filp, iv->iov_base,
 					iv->iov_len, &offset);
-			mutex_lock(&inode->i_mutex);
+			//mutex_lock(&inode->i_mutex);
+			inode_lock(inode);
 		}
 		if (ret < 0)
 			goto err;
@@ -1653,17 +1657,18 @@ err:
 #else
 
 static ssize_t pmfs_direct_IO(struct kiocb *iocb,
-	struct iov_iter *iter, loff_t offset)
+	struct iov_iter *iter)
 {
 	struct file *filp = iocb->ki_filp;
 	struct inode *inode = filp->f_mapping->host;
+	loff_t offset = iocb->ki_pos; /* jmjung update */
 	loff_t end = offset;
 	ssize_t ret = -EINVAL;
 	ssize_t written = 0;
 	unsigned long seg;
 	unsigned long nr_segs = iter->nr_segs;
 	const struct iovec *iv = iter->iov;
-
+	
 	for (seg = 0; seg < nr_segs; seg++) {
 		end += iv->iov_len;
 		iv++;
@@ -1681,10 +1686,12 @@ static ssize_t pmfs_direct_IO(struct kiocb *iocb,
 			ret = pmfs_xip_file_read(filp, iv->iov_base,
 					iv->iov_len, &offset);
 		} else if (iov_iter_rw(iter) == WRITE) {
-			mutex_unlock(&inode->i_mutex);
+			//mutex_unlock(&inode->i_mutex);
+			inode_unlock(inode);
 			ret = pmfs_xip_file_write(filp, iv->iov_base,
 					iv->iov_len, &offset);
-			mutex_lock(&inode->i_mutex);
+			//mutex_lock(&inode->i_mutex);
+			inode_lock(inode);
 		}
 		if (ret < 0)
 			goto err;

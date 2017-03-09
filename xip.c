@@ -18,6 +18,8 @@
 #include <asm/pgtable.h>
 #include "pmfs.h"
 #include "xip.h"
+/* jmjung update */
+#include <linux/pfn_t.h>
 
 static ssize_t
 do_xip_mapping_read(struct address_space *mapping,
@@ -347,7 +349,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	PMFS_START_TIMING(xip_write_t, xip_write_time);
 
 	sb_start_write(inode->i_sb);
-	mutex_lock(&inode->i_mutex);
+	//mutex_lock(&inode->i_mutex);
+	inode_lock(inode);
 
 	if (!access_ok(VERIFY_READ, buf, len)) {
 		ret = -EFAULT;
@@ -433,7 +436,8 @@ ssize_t pmfs_xip_file_write(struct file *filp, const char __user *buf,
 	pmfs_commit_transaction(sb, trans);
 	ret = written;
 out:
-	mutex_unlock(&inode->i_mutex);
+	//mutex_unlock(&inode->i_mutex);
+	inode_unlock(inode);
 	sb_end_write(inode->i_sb);
 	PMFS_END_TIMING(xip_write_t, xip_write_time);
 	return ret;
@@ -450,6 +454,8 @@ static int __pmfs_xip_file_fault(struct vm_area_struct *vma,
 	pgoff_t size;
 	void *xip_mem;
 	unsigned long xip_pfn;
+	/* jmjung update */
+	pfn_t xip_pfn_t;
 	int err;
 
 	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
@@ -457,7 +463,7 @@ static int __pmfs_xip_file_fault(struct vm_area_struct *vma,
 		pmfs_dbg("[%s:%d] pgoff >= size(SIGBUS). vm_start(0x%lx),"
 			" vm_end(0x%lx), pgoff(0x%lx), VA(%lx), size 0x%lx\n",
 			__func__, __LINE__, vma->vm_start, vma->vm_end,
-			vmf->pgoff, (unsigned long)vmf->virtual_address, size);
+			vmf->pgoff, (unsigned long)vmf->/*virtual_*/address, size);
 		return VM_FAULT_SIGBUS;
 	}
 
@@ -466,17 +472,19 @@ static int __pmfs_xip_file_fault(struct vm_area_struct *vma,
 		pmfs_dbg("[%s:%d] get_xip_mem failed(OOM). vm_start(0x%lx),"
 			" vm_end(0x%lx), pgoff(0x%lx), VA(%lx)\n",
 			__func__, __LINE__, vma->vm_start, vma->vm_end,
-			vmf->pgoff, (unsigned long)vmf->virtual_address);
+			vmf->pgoff, (unsigned long)vmf->/*virtual_*/address);
 		return VM_FAULT_SIGBUS;
 	}
 
 	pmfs_dbg_mmapv("[%s:%d] vm_start(0x%lx), vm_end(0x%lx), pgoff(0x%lx), "
 			"BlockSz(0x%lx), VA(0x%lx)->PA(0x%lx)\n", __func__,
 			__LINE__, vma->vm_start, vma->vm_end, vmf->pgoff,
-			PAGE_SIZE, (unsigned long)vmf->virtual_address,
+			PAGE_SIZE, (unsigned long)vmf->/*virtual_*/address,
 			(unsigned long)xip_pfn << PAGE_SHIFT);
 
-	err = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address, xip_pfn);
+	/*jmjung update */
+	xip_pfn_t = pfn_to_pfn_t(xip_pfn);
+	err = vm_insert_mixed(vma, (unsigned long)vmf->/*virtual_*/address, xip_pfn_t);
 
 	if (err == -ENOMEM)
 		return VM_FAULT_SIGBUS;
@@ -537,7 +545,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode, sector_t iblock,
 			}
 
 			rcu_read_unlock();
-			mutex_lock(&inode->i_mutex);
+			//mutex_lock(&inode->i_mutex);
+			inode_lock(inode);
 
 			pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY,
 				LE_DATA);
@@ -545,7 +554,8 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode, sector_t iblock,
 
 			pmfs_commit_transaction(sb, trans);
 
-			mutex_unlock(&inode->i_mutex);
+			//mutex_unlock(&inode->i_mutex);
+			inode_unlock(inode);
 			rcu_read_lock();
 			if (err) {
 				pmfs_dbg_verbose("[%s:%d] Alloc failed!\n",

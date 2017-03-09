@@ -674,7 +674,7 @@ end_rmdir:
 
 static int pmfs_rename(struct inode *old_dir,
 			struct dentry *old_dentry,
-			struct inode *new_dir, struct dentry *new_dentry)
+			struct inode *new_dir, struct dentry *new_dentry, unsigned int flags)
 {
 	struct inode *old_inode = old_dentry->d_inode;
 	struct inode *new_inode = new_dentry->d_inode;
@@ -683,6 +683,9 @@ static int pmfs_rename(struct inode *old_dir,
 	struct super_block *sb = old_inode->i_sb;
 	struct pmfs_inode *pi, *new_pidir, *old_pidir;
 	int err = -ENOENT;
+	/* jmjung update */
+	if (flags)
+		return -EINVAL;
 
 	pmfs_inode_by_name(new_dir, &new_dentry->d_name, &new_de);
 	pmfs_inode_by_name(old_dir, &old_dentry->d_name, &old_de);

@@ -29,6 +29,11 @@
 #define PAGE_SHIFT_2M 21
 #define PAGE_SHIFT_1G 30
 
+/* pmswap: PAGE_CACHE_XX no longer supported in recent kernel */
+#define PAGE_CACHE_SHIFT	PAGE_SHIFT
+#define PAGE_CACHE_SIZE		PAGE_SIZE
+#define PAGE_CACHE_MASK		PAGE_MASK
+
 #define PMFS_ASSERT(x)                                                 \
 	if (!(x)) {                                                     \
 		printk(KERN_WARNING "assertion failed %s:%d: %s\n",     \
